@@ -51,7 +51,8 @@ def serve(models, max_workers: int=1, port: int=9000):
                                   ('grpc.max_receive_message_length', GIGABYTE)
                                   ])
     prediction_service_pb2_grpc.add_PredictionServiceServicer_to_server(
-        PredictionServiceServicer(models=models), server)
+        PredictionServiceServicer(models=models, num_workers=max_workers),
+        server)
     model_service_pb2_grpc.add_ModelServiceServicer_to_server(
         ModelServiceServicer(models=models), server)
     server.add_insecure_port('[::]:{}'.format(port))

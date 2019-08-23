@@ -104,7 +104,8 @@ def parse_one_model(args):
         model = ModelBuilder.build(model_name=args.model_name,
                                    model_directory=args.model_path,
                                    batch_size=args.batch_size,
-                                   model_version_policy=model_version_policy)
+                                   model_version_policy=model_version_policy,
+                                   infer_requests_number=args.nireq)
     except ValidationError as e_val:
         logger.error("Model version policy is invalid. "
                      "Exception: {}".format(e_val))
@@ -129,7 +130,7 @@ def parse_one_model(args):
                                           args=[models, args.rest_port])
         process_thread.setDaemon(True)
         process_thread.start()
-    start_server(models=models, max_workers=1, port=args.port)
+    start_server(models=models, max_workers=args.grpc_threads, port=args.port)
 
 
 def main():
@@ -171,6 +172,13 @@ def main():
                           help='model version policy',
                           required=False,
                           default='{"latest": { "num_versions":1 }}')
+    parser_b.add_argument('--nireq', type=int,
+                          help='Number of infer requests',
+                          required=False, default=1)
+    parser_b.add_argument('--grpc_threads', type=int,
+                          help='Number of gRPC threads',
+                          required=False, default=1)
+
     parser_b.set_defaults(func=parse_one_model)
     args = parser.parse_args()
     logger.info("Log level set: {}".format(LOGGER_LVL))

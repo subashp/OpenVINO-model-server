@@ -54,7 +54,7 @@ class Model(ABC):
 
     @classmethod
     def build(cls, model_name: str, model_directory: str, batch_size,
-              model_version_policy: dict = None):
+              model_version_policy: dict = None, infer_requests_number=1):
         logger.info("Server start loading model: {}".format(model_name))
         version_policy_filter = cls.get_model_version_policy_filter(
             model_version_policy)
@@ -78,7 +78,7 @@ class Model(ABC):
                                                             version)
 
         engines = cls.get_engines_for_model(versions_attributes,
-                                            versions_statuses)
+                                            versions_statuses, infer_requests_number)
 
         available_versions = [version_attributes['version_number'] for
                               version_attributes in versions_attributes]
@@ -235,7 +235,8 @@ class Model(ABC):
                               "valid.".format(model_version_policy))
 
     @classmethod
-    def get_engines_for_model(cls, versions_attributes, versions_statuses):
+    def get_engines_for_model(cls, versions_attributes, versions_statuses,
+                              infer_requests_number):
         inference_engines = {}
         failures = []
         for version_attributes in versions_attributes:
@@ -247,7 +248,8 @@ class Model(ABC):
                 versions_statuses[version_number].set_loading()
 
                 inference_engines[version_number] = \
-                    cls.get_engine_for_version(version_attributes)
+                    cls.get_engine_for_version(version_attributes,
+                                               infer_requests_number)
             except Exception as e:
                 logger.error("Error occurred while loading model "
                              "version: {}".format(version_attributes))
@@ -281,5 +283,5 @@ class Model(ABC):
 
     @classmethod
     @abstractmethod
-    def get_engine_for_version(cls, version_attributes):
+    def get_engine_for_version(cls, version_attributes, infer_requests_number):
         pass

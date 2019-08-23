@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+import time
 from threading import Lock
 from ie_serving.config import CPU_EXTENSION, DEVICE, PLUGIN_DIR
 from openvino.inference_engine import IENetwork, IEPlugin
@@ -21,6 +21,7 @@ import json
 from ie_serving.logger import get_logger
 
 logger = get_logger(__name__)
+INFERENCE_STATE_CHECK_INTERVAL = 0.001
 
 
 def _set_batch_size(config_batch_size, model_batch_size):
@@ -70,7 +71,8 @@ class IrEngine():
         logger.info("Matched keys for model: {}".format(self.model_keys))
 
     @classmethod
-    def build(cls, model_xml, model_bin, mapping_config, batch_size):
+    def build(cls, model_xml, model_bin, mapping_config, batch_size,
+              infer_requests_number):
         plugin = IEPlugin(device=DEVICE, plugin_dirs=PLUGIN_DIR)
         if CPU_EXTENSION and 'CPU' in DEVICE:
             plugin.add_cpu_extension(CPU_EXTENSION)
@@ -83,7 +85,7 @@ class IrEngine():
         logger.debug("effective batch size - {}".format(effective_batch_size))
         inputs = net.inputs
         outputs = net.outputs
-        exec_net = plugin.load(network=net, num_requests=1)
+        exec_net = plugin.load(network=net, num_requests=infer_requests_number)
         ir_engine = cls(model_xml=model_xml, model_bin=model_bin,
                         mapping_config=mapping_config, net=net, plugin=plugin,
                         exec_net=exec_net, inputs=inputs, outputs=outputs,
@@ -140,9 +142,11 @@ class IrEngine():
         else:
             return self._set_names_in_config_as_keys(mapping_data)
 
-    def infer(self, data: dict, batch_size=None):
-        if batch_size is not self.net.batch_size and self.batch_size == 0:
-            self.net.batch_size = batch_size
-            self.exec_net = self.plugin.load(network=self.net)
-        results = self.exec_net.infer(inputs=data)
+    def infer(self, data: dict, ir_index=0):
+        infer_request_handle = self.exec_net.start_async(request_id=ir_index,
+                                                         inputs=data)
+        while infer_request_handle.wait(0) != 0:
+            time.sleep(INFERENCE_STATE_CHECK_INTERVAL)
+        infer_request_handle.wait(-1)
+        results = infer_request_handle.outputs
         return results

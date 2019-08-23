@@ -15,6 +15,7 @@
 #
 
 import datetime
+import queue
 
 from tensorflow_serving.apis import get_model_metadata_pb2
 from tensorflow_serving.apis import get_model_status_pb2
@@ -39,8 +40,11 @@ logger = get_logger(__name__)
 class PredictionServiceServicer(prediction_service_pb2_grpc.
                                 PredictionServiceServicer):
 
-    def __init__(self, models):
+    def __init__(self, models, num_workers):
         self.models = models
+        self.free_ir_index_queue = queue.Queue()
+        [self.free_ir_index_queue.put(ir_index) for ir_index
+         in range(num_workers)]
 
     def Predict(self, request, context):
         """
@@ -78,12 +82,14 @@ class PredictionServiceServicer(prediction_service_pb2_grpc.
             logger.debug("PREDICT, problem with input data. Exit code {}"
                          .format(code))
             return predict_pb2.PredictResponse()
-        self.models[model_name].engines[version].in_use.acquire()
+        # self.models[model_name].engines[version].in_use.acquire()
         inference_start_time = datetime.datetime.now()
+        ir_index = self.free_ir_index_queue.get()
         inference_output = self.models[model_name].engines[version] \
-            .infer(inference_input, batch_size)
+            .infer(inference_input, ir_index)
+        self.free_ir_index_queue.put(ir_index)
         inference_end_time = datetime.datetime.now()
-        self.models[model_name].engines[version].in_use.release()
+        # self.models[model_name].engines[version].in_use.release()
         duration = \
             (inference_end_time - inference_start_time).total_seconds() * 1000
         logger.debug("PREDICT; inference execution completed; {}; {}; {}ms"
