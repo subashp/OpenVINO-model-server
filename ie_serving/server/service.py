@@ -40,11 +40,11 @@ logger = get_logger(__name__)
 class PredictionServiceServicer(prediction_service_pb2_grpc.
                                 PredictionServiceServicer):
 
-    def __init__(self, models, num_workers):
+    def __init__(self, models, infer_requests_number):
         self.models = models
         self.free_ir_index_queue = queue.Queue()
         [self.free_ir_index_queue.put(ir_index) for ir_index
-         in range(num_workers)]
+         in range(infer_requests_number)]
 
     def Predict(self, request, context):
         """
