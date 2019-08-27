@@ -45,16 +45,13 @@ def initialize_tf():
     pass
 
 
-def serve(models, grpc_threads: int=1, infer_requests_number: int=1, port:
-    int=9000):
+def serve(models, grpc_threads: int=1, port: int=9000):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=grpc_threads),
                          options=[('grpc.max_send_message_length', GIGABYTE),
                                   ('grpc.max_receive_message_length', GIGABYTE)
                                   ])
     prediction_service_pb2_grpc.add_PredictionServiceServicer_to_server(
-        PredictionServiceServicer(models=models,
-                                  infer_requests_number=infer_requests_number),
-        server)
+        PredictionServiceServicer(models=models), server)
     model_service_pb2_grpc.add_ModelServiceServicer_to_server(
         ModelServiceServicer(models=models), server)
     server.add_insecure_port('[::]:{}'.format(port))

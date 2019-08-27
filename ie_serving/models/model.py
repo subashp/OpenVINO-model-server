@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import queue
 import re
 import threading
 import time
@@ -33,11 +34,17 @@ class Model(ABC):
 
     def __init__(self, model_name: str, model_directory: str, batch_size,
                  available_versions: list, engines: dict,
-                 version_policy_filter, versions_statuses: dict):
+                 version_policy_filter, versions_statuses: dict,
+                 infer_requests_number: int):
         self.model_name = model_name
         self.model_directory = model_directory
         self.versions = available_versions
+
         self.engines = engines
+        self.free_ir_index_queue = queue.Queue()
+        [self.free_ir_index_queue.put(ir_index) for ir_index
+         in range(infer_requests_number)]
+
         self.default_version = max(self.versions, default=-1)
         self.batch_size = batch_size
         self.version_policy_filter = version_policy_filter
@@ -87,7 +94,8 @@ class Model(ABC):
                     available_versions=available_versions, engines=engines,
                     batch_size=batch_size,
                     version_policy_filter=version_policy_filter,
-                    versions_statuses=versions_statuses)
+                    versions_statuses=versions_statuses,
+                    infer_requests_number=infer_requests_number)
         return model
 
     def update(self):

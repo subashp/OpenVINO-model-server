@@ -40,11 +40,8 @@ logger = get_logger(__name__)
 class PredictionServiceServicer(prediction_service_pb2_grpc.
                                 PredictionServiceServicer):
 
-    def __init__(self, models, infer_requests_number):
+    def __init__(self, models):
         self.models = models
-        self.free_ir_index_queue = queue.Queue()
-        [self.free_ir_index_queue.put(ir_index) for ir_index
-         in range(infer_requests_number)]
 
     def Predict(self, request, context):
         """
@@ -84,10 +81,10 @@ class PredictionServiceServicer(prediction_service_pb2_grpc.
             return predict_pb2.PredictResponse()
         # self.models[model_name].engines[version].in_use.acquire()
         inference_start_time = datetime.datetime.now()
-        ir_index = self.free_ir_index_queue.get()
+        ir_index = self.models[model_name].free_ir_index_queue.get()
         inference_output = self.models[model_name].engines[version] \
             .infer(inference_input, ir_index)
-        self.free_ir_index_queue.put(ir_index)
+        self.models[model_name].free_ir_index_queue.put(ir_index)
         inference_end_time = datetime.datetime.now()
         # self.models[model_name].engines[version].in_use.release()
         duration = \
